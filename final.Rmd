@@ -1,0 +1,553 @@
+---
+title: "Exploration of Factors Affecting Global Rates of Violence against Women"
+author: "Ingrid Stevens"
+date: "2022"
+output:
+  html_document:
+    theme: lumen
+    highlight: kate
+    toc: yes
+    toc_depth: 3
+    number_sections: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '3'
+  word_document:
+    toc: yes
+    toc_depth: '3'
+bibliography: LibraryAll.bib
+biblio-style: apalike
+link-citations: yes
+---
+
+
+```{css, echo=FALSE}
+.CSSoutput {
+  background-color: #FFF1C9;
+  border: 1px solid black;
+}
+```
+```{r setup chunks, include=FALSE}
+knitr::opts_chunk$set(class.source = "CSSoutput",
+                      eval = TRUE, echo = TRUE, include = TRUE,      
+                      fig.align='center', fig.show='asis',
+                      size='footnotesize')
+
+```
+
+
+```{r setup, include=FALSE}
+# reset R environment
+rm(list=ls(all=TRUE)) 
+graphics.off()
+
+################
+# install and load packages
+################
+#  if packages are not already installed, the function will install and activate them
+usePackage <- function(p) {
+  if (!is.element(p, installed.packages()[,1]))
+    install.packages(p, dep = TRUE, repos = "http://cran.us.r-project.org")
+  require(p, character.only = TRUE)
+}
+
+usePackage("knitr") # knit to pdf etc
+usePackage("tidyverse") # data cleaning and summarizing  
+usePackage("psych") # psychometric analysis (EFA)
+usePackage("moderndive")
+usePackage("dplyr")
+usePackage("tinytex")
+# create tables
+rm(usePackage)
+
+
+options(tinytex.verbose = TRUE)
+```
+
+
+
+```{r loaddata, include=FALSE}
+## change working directory
+# setwd("~/Documents/labjs-report")
+
+# Install relevant parts
+library(dplyr)
+require(gridExtra)
+
+
+## load data
+violenceWomen <- read.csv("data/partner_violence.csv") %>% 
+  rename(violenceWomen2018 = X2018) %>% 
+  select(country, violenceWomen2018) %>% 
+  na.omit()
+
+fertilityWomen <- read.csv("data/children_per_woman_total_fertility.csv") %>% 
+  rename(fertilityWomen2018 = X2018) %>% 
+  select(country, fertilityWomen2018) %>% 
+  na.omit()
+
+schoolRatio <- read.csv("data/ratio_of_girls_to_boys_in_primary_and_secondary_education_perc.csv") %>% 
+  rename(schoolRatio2018 = X2018) %>% 
+  select(country, schoolRatio2018) %>% 
+  na.omit()
+  
+
+incomePerPerson <- read.csv("data/income_per_person_gdppercapita_ppp_inflation_adjusted.csv") %>% 
+  rename(incomePerPerson2018 = X2018) %>%
+  select(country, incomePerPerson2018) %>% 
+  na.omit()
+
+
+# Create a data set with the three 2018 variables: Violence against women, babies per woman, school ratio
+women_data <- violenceWomen %>%
+  left_join(fertilityWomen, by='country') %>%
+  left_join(schoolRatio, by='country') %>% 
+  left_join(incomePerPerson, by='country') %>% 
+  dplyr::select("country", contains("2018")) %>% # remove all other columns from DF
+  na.omit() %>%   # remove rows with omit
+  mutate(gender2018 = case_when(
+    schoolRatio2018 < 1 ~ "more_boys",
+    schoolRatio2018 == 1 ~ "equal",
+    schoolRatio2018 > 1 ~ "more_girls",
+    TRUE ~ "NA"
+  )) 
+
+## MEAN :: create mean scores across all variables
+
+# violence against women
+
+mean(women_data$violenceWomen2018)
+sd(women_data$violenceWomen2018)
+
+# fertility in women
+
+mean(women_data$fertilityWomen2018)
+sd(women_data$fertilityWomen2018)
+
+# mean of school ratio
+
+mean(women_data$schoolRatio2018)
+sd(women_data$schoolRatio2018)
+
+```
+
+
+# Summary & Findings
+
+Violence against women is a common issue in our society, as nearly one-third of all women have experienced some kind of physical violence at some point in their lives. The aim of this report is to answer the following two research questions: 
+
+**1. Is there a relation between violence against women and the gender ratio found in primary and secondary classrooms? **
+
+Using statistical methods, the data reveal that there is a connection between the incidence of violence against women and babies per woman, but less than half of the variation in violence against women (47.6%) can be explained by the number of babies per woman
+
+**2. Are countries that experience more violence against women correlated to more babies born per woman? **
+
+The data reveal a very weak correlation between the ratio of boys to girls in school and the violence against women, with the former only explaining 3.3% of the variation.
+
+
+
+# Introduction: Violence Against Women 
+
+In this paper, the relationships between violence against women and a few other gender-related factors will be explored. According to the World Health Organization, violence against women is common, as nearly one-third of all women have experienced some kind of physical violence at some point in their lives [@world2021violence]. Furthermore, as physical abuse of women by their husbands or partners is unfortunately not uncommon, factors related to family dynamics will be investigated [@sardinha2022global, pp. 3]. 
+
+The purpose of this paper is to attempt to understand any potential correlation between violence against women and other gender-related factors, such as the ratio of girls to boys in primary and secondary school, and the number of babies per woman on average in a country. Investigating these connections will help the reader determine if there is a correlation between factors present during childhood, such as the gender composition of school peers, and factors impacting the family, such as the number of babies the women in their country have, and violence against women in those countries.
+
+
+The aim of this report is to answer the following two research questions: 
+
+**(1) Is there a relation between classroom composition by gender and gender-based violence in a country? **
+
+**(2) Are countries which experience more violence against women correlated to more babies born per woman?   **
+
+
+# Background
+
+Violence against women has been a persistent and pervasive human rights issue globally. Many women and girls have already or will experience some form of violence or another in their lifetime, and unfortunately the most common form of violence against women is violence from intimate partners [@world2009promoting, pp. 3]. 
+
+The Millenium Development Goals, which were developed by the United Nations to address goals for the developing world, aim to eliminate [@world2005addressing, pp. 3].As violence against women can take the form of physical and sexual abuse, stalking, and other forms of coercive control, understanding variables which are associated with violence against women can help us understand why this happens, and further, what types of changes to society can be made to reduce the likelihood of such abuse. 
+
+
+Although the role between gender violence and gender is arguably complex, literature suggests that inequality increases the risk of violence by men against women [@world2009promoting, pp. 4; @beer2009democracy; @guedes2019determinants]. With this in mind, this paper will explore inequalities borne from differentiating levels of education attendance for boys and girls, and another potentially related factor, the effect of differences in birth rate between countries on violence against women.
+
+# Methods
+
+To explore this topic, three main variables will be used: Babies per woman, Ratio of girls to boys in primary and secondary education, Violence against women and girls by intimate partners, and Income per person.
+
+First, the data will be cleaned and analyzed. For simplicity, and to ensure data is available for all variables, this paper is limited to only the year 2018. Following that, the data will be explored for correlations and linear relationships. Multivariate relationships will also be explored. Finally, conclusions will be made with regard to the hypotheses, and further research recommendations will be made.
+
+## Data
+The data used in this paper is from The Gapminder Foundation, which publishes various data sets about the state of the world, a few of which I will use to address this research question. 
+
+As the research question explores the relationship between Violence Against Women and the ratio of girls to boys in primary education as well as the number of babies per woman, on average, these hypothetical connections need to be justified. This paper does that in the next section:
+
+
+### Justification: Violence against women in relation to school gender ratio
+Various studies which have sought to find whether there is a connection between violence and girls accessing schooling, which would indicate that violence against women may cause a change in the ratio of girls and boys attending primary school for fear of violence [@bisika2009gender, pp. 287]. Indeed, in Malawi, a connection between violence against women and girls was found to exist. Therefore, this report will look at gender ratio in primary and secondary education as a possible explanatory variable for violence against women since gender inequality has been distinguished as a risk factor for multiple forms of violence [@willie2019ecological, pp. 260; @yodanis2004gender].
+
+
+
+### Justification: Violence against women in relation to number of babies per woman 
+Lack of education is often cited as a factor related to increases in violence against women [@adjah2016determinants]. Similarly, increases in education for women are associated with fewer babies per woman [@mathews1997birth]. Therefore, we might reasonably expect to see a positive correlation between violence against women and babies per woman. This will be explored using data below.
+
+
+## Overview of Variables
+
+Below is an overview of the variables used in this paper. They can be further understood by [referencing the included codebook](./data/codebook/codebook_violence_against_women.pdf)
+
+**Babies per woman:**
+Average number of babies per woman in a country.
+
+**Ratio of girls to boys in primary and secondary school:**
+Ratio of girls to boys in primary and secondary education.
+
+**Violence against women and girls by intimate partners:** 
+Ever-partnered women and girls subjected to physical and/or sexual violence by a current or former intimate partner in the previous 12 months (% ages 15–49)
+
+**Income Per Person:**
+Income per person (GDP/capita, PPP$ inflation adjusted)
+
+
+## Hypothesis
+
+**H0: The violence against women in a country is related to either the ratio of females to males in primary school and/or the babies born per woman.**
+
+**H1: The violence against women in a country is not related to either the ratio of females to males in primary school and/or the babies born per woman.**
+
+
+# Results
+
+## Data Preparation
+
+First, the data sets are read in and cleaned up using pipes to make later organizing easier.
+```{r create_three_datasets}
+# Create a data set with the three 2018 variables: Violence against women, babies per woman, school ratio
+
+violenceWomen <- read.csv("data/partner_violence.csv") %>% 
+  rename(violenceWomen2018 = X2018) %>% 
+  select(country, violenceWomen2018) %>% 
+  na.omit()
+
+fertilityWomen <- read.csv("data/children_per_woman_total_fertility.csv") %>% 
+  rename(fertilityWomen2018 = X2018) %>% 
+  select(country, fertilityWomen2018) %>% 
+  na.omit()
+
+schoolRatio <- read.csv("data/ratio_of_girls_to_boys_in_primary_and_secondary_education_perc.csv") %>% 
+  rename(schoolRatio2018 = X2018) %>% 
+  select(country, schoolRatio2018) %>% 
+  na.omit()
+  
+
+incomePerPerson <- read.csv("data/income_per_person_gdppercapita_ppp_inflation_adjusted.csv") %>% 
+  rename(incomePerPerson2018 = X2018) %>%
+  select(country, incomePerPerson2018) %>% 
+  na.omit()
+
+```
+
+
+Next, we create a dataset called ```women_data``` with all the relevant data combined for the year 2018.
+```{r create_one_women_dataset}
+
+# Create a data set with the three 2018 variables: Violence against women, babies per woman, school ratio
+women_data <- violenceWomen %>%
+  left_join(fertilityWomen, by='country') %>%
+  left_join(schoolRatio, by='country') %>% 
+  left_join(incomePerPerson, by='country') %>% 
+  dplyr::select("country", contains("2018")) %>% # remove all other columns from DF
+  na.omit() %>%   # remove rows with NA
+  mutate(gender2018 = case_when( # create a new column and display the type of school gender composition
+    schoolRatio2018 < 1 ~ "more_boys",
+    schoolRatio2018 == 1 ~ "equal",
+    schoolRatio2018 > 1 ~ "more_girls",
+    TRUE ~ "NA"
+  )) 
+```
+
+
+## Summary Statistics
+
+First, summary statistics are be generated for all variables.
+
+```{r }
+knitr::kable(summary(women_data))
+
+```
+
+## Boxplots & Histograms of Key Variables
+
+
+To better understand the data, a histogram will be made of the three main variables, plus the fourth variable of income per capita: 
+
+```{r include=FALSE}
+fertility_hist <- ggplot(data=women_data, mapping=aes(x=fertilityWomen2018))+
+  geom_histogram( fill="#EA5F89", col=I("white"), breaks=seq(0, 7, by=.25), binwidth = .25, bins = 30) +
+  theme_minimal() + 
+  scale_y_continuous("Density") + 
+  labs(title = "Histogram of Babies Per Woman",
+       subtitle = "over all countries, 2018",
+       x = "Babies per woman",
+       y = "Count")
+```
+
+```{r include=FALSE}
+school_hist <- ggplot(data=women_data, mapping=aes(x=schoolRatio2018))+
+  geom_histogram( fill="#EA5F89", col=I("white"), breaks=seq(0.5, 1.5, by=.05), binwidth = .05, bins = 30) +
+  theme_minimal() + 
+  scale_y_continuous("Density") + 
+  labs(title = "Histogram of School Ratio",
+       subtitle = "over all countries, 2018",
+       x = "Ratio of girls/boys in primary & secondary school",
+       y = "Count")
+```
+
+```{r include=FALSE}
+violence_hist <- ggplot(data=women_data, mapping=aes(x=violenceWomen2018))+
+  geom_histogram( fill="#EA5F89", col=I("white"), bins = 30) +
+  theme_minimal() + 
+  scale_y_continuous("Density") + 
+  labs(title = "Histogram of Violence against Women",
+       subtitle = "over all countries, 2018",
+       x = "Violence against women",
+       y = "Count")
+```
+
+```{r include=FALSE}
+income_hist <- ggplot(data=women_data, mapping=aes(x=incomePerPerson2018))+
+  geom_histogram( fill="#EA5F89", col=I("white"), bins = 30) +
+  theme_minimal() + 
+  scale_y_continuous("Density") + 
+  labs(title = "Histogram of Income Per Capita",
+       subtitle = "over all countries, 2018",
+       x = "Income per capita",
+       y = "Count")
+```
+
+```{r }
+# Placing all four histograms in a grid
+grid.arrange(violence_hist, fertility_hist, school_hist, income_hist, ncol=2)
+```
+
+**Violence against Women**
+```{r fig.cap= "Fig 4.3.1 Boxplot showing violence against women"}
+boxplot(women_data$violenceWomen2018,
+  main = "Average Violence against Women across all Countries in 2018",
+  xlab = "Incidences of Violence against Women",
+  ylab = "2018",
+  col = "#EA5F89",
+  border = "#2B0B3F",
+  horizontal = TRUE,
+  notch = FALSE
+)
+```
+
+**Fertility Rate**
+```{r fig.cap= "Fig 4.3.2 Boxplot showing average number of babies per woman"}
+boxplot(women_data$fertilityWomen2018,
+  main = "Average Babies per Woman in 2018",
+  xlab = "Babies per Woman",
+  ylab = "2018",
+  col = "#EA5F89",
+  border = "#2B0B3F",
+  horizontal = TRUE,
+  notch = FALSE
+)
+```
+
+**Ratio of Girls to Boys in Primary & Secondary Education**
+```{r fig.cap= "Fig 4.3.3 Boxplot showing ratio of girls to boys in primary school"}
+school_boxplot <- boxplot(women_data$schoolRatio2018,
+  main = "Average Ratio of Girls to Boys in Primary Education",
+  xlab = "Ratio of Girls to Boys",
+  ylab = "2018",
+  col = "#EA5F89",
+  border = "#2B0B3F",
+  horizontal = TRUE,
+  notch = FALSE
+)
+```
+
+## Data Analysis
+
+
+### Plots
+
+
+```{r}
+# Plot Data: Babies per woman by country 
+
+ggplot(data=women_data, mapping=aes(x=country, y=fertilityWomen2018))+
+  geom_point(aes(color = incomePerPerson2018, shape = gender2018)) +
+  theme(axis.text.x = element_text(size = .05))+
+  scale_color_gradient(low = "orange", high = "darkgreen") +
+  theme_minimal() +
+  labs(x="Country", y="Average babies per woman", 
+       title="Babies per Woman by Country in 2018",
+       subtitle="Based on average birth rate with color as income per person",
+       caption = "Figure 4.1 Babies per woman by country") +
+  geom_smooth(formula = y ~ x, method=lm, color="#FFF1C9") + 
+  scale_x_discrete(guide = guide_axis(angle = 85)) +
+  theme(axis.text.x=element_text(size=4))
+
+```
+In Figure 4.1, one can observe the babies born per woman by country mostly hovers around 2, with some outliers going to a maximum of 5.75.
+
+Variations in the gender distribution within primary and secondary schools can be seen by the shape of the datapoints.
+
+Variations in income can be seen by the color variation of the dots.
+
+
+```{r}
+# Plot Data: Babies per woman by ratio of girls to boys in primary school 
+
+ggplot(data=women_data, mapping=aes(x=fertilityWomen2018, y=schoolRatio2018))+
+  geom_point()+
+  theme_minimal() +
+  labs(x="Babies per woman", y="Ratio of Girls/Boys in primary education", 
+       title="Babies per Woman by School Ratio in 2018",
+       subtitle="Of males to females ",
+       caption = "Figure 4.2 School Gender Ratio compared with Babies per Woman") +
+  geom_point(aes(color = incomePerPerson2018), size = 2) +
+  scale_color_gradient(low = "orange", high = "darkgreen") +
+  geom_smooth(formula = y ~ x, method=lm, color="#FFF1C9")
+
+```
+
+There appears to be a downward trend, where as babies per woman increase, fewer girls are found in primary and secondary education. This may, however, be due to outliers such as Chad, which has a average rate of 5.75 babies per woman and a school gender ratio of 0.727 (more boys than girls in school). 
+
+Variations in income can be seen by the color variation of the dots.
+
+```{r figure43}
+# Plot Data: Violence against Women plotted against Ratio of girls:boys in school 
+
+ggplot(data=women_data, mapping=aes(x=violenceWomen2018, y=schoolRatio2018))+
+  geom_point()+
+  theme_minimal() +
+  labs(x="Violence against women", 
+       y="Ratio of Girls to Boys in primary education", 
+       title="Violence against Women x School Ratio in 2018",
+       subtitle="Of males to females ",
+       caption = "Figure 4.3 Violence against women compared with ratio of girls to boys in school") +
+  geom_point(aes(color = incomePerPerson2018), size = 2) +
+  scale_color_gradient(low = "orange", high = "darkgreen") +
+  geom_smooth(formula = y ~ x, method=lm, color="#FFF1C9") 
+
+```
+As seen in Figure 4.3, there is a slight downward trend where as the ratio of girls to boys in primary education decreases (meaning there are more boys than girls in school), we see higher incidents of violence against women. However, this trend may be present due to a few outliers of very high rates of violence against women (i.e. Papua New Guinea).
+
+Variations in income can be seen by the color variation of the dots.
+
+```{r figure44}
+# Plot Data: Violence against Women plotted against Birthrate 
+
+ggplot(data=women_data, mapping=aes(x=violenceWomen2018, y=fertilityWomen2018))+
+  geom_point()+
+  theme_minimal() +
+  labs(x="Violence against women", 
+       y="Babies born per woman", 
+       title="Violence Against Women x Babies per Woman in 2018",
+       subtitle="",
+       caption = "Figure 4.4 Violence against women compared with babies born per woman") +
+  geom_point(aes(color = incomePerPerson2018), size = 2) +
+  scale_color_gradient(low = "orange", high = "darkgreen") +
+  geom_smooth(formula = y ~ x, method=lm, color="#FFF1C9") 
+
+```
+
+```{r}
+cor(women_data$violenceWomen2018, women_data$fertilityWomen2018)
+```
+As seen in Figure 4.4, a fairly strong correlation can be seen between babies per woman and violence against women. Calculated, the correlation is 68.98%, meaning that there is a positive, moderately strong correlation between babies per woman and violence against women.
+
+Variations in income can be seen by the color variation of the dots.
+
+
+### Linear Regression
+
+As one of the final steps in this paper, a linear regression is conducted to understand the relationship between variables. 
+ 
+
+```{r}
+
+# Fit lm() regression:
+
+violence_school <- lm(violenceWomen2018 ~ schoolRatio2018, data = women_data)
+birthrate_violence <- lm(fertilityWomen2018 ~ violenceWomen2018, data = women_data)
+```
+
+**The tables below show the r-squared values for each combination of the three main variables**
+
+**Violence & School Ratio**
+```{r results = 'asis'}
+knitr::kable(get_regression_summaries(violence_school))
+```
+
+**Babies per Woman & Violence**
+```{r results = 'asis'}
+knitr::kable(get_regression_summaries(birthrate_violence))
+```
+
+The r-squared value is a measure of how well a regression model fits the data. The values seen for the r-squared value on each of these combinations of variables indicates that the relation between babies per woman and violence against women is the best fit of all three measured in the section above, as the r-squared value for Babies per Woman and Violence is 0.476. This indicates that only 47.6% of the variation in violence against women can be explained by the number of babies produced by a woman, on average, in a country.
+
+The r-squared value for the relationship between violence against women and the ratio of boys to girls in a school is quite low at 0.033. This means that the ratio of boys to girls in school can only explain 3.3% of the variation in violence against women.
+
+### Multiple linear regression 
+
+Next, multivariate regression will be performed to identify any relationships between both variables (school gender ratio and babies per woman) and violence against women. 
+
+
+
+```{r}
+gender_model_all <- lm(violenceWomen2018 ~ schoolRatio2018 * fertilityWomen2018, data = women_data)
+
+```
+
+```{r regression_summaries, results = 'asis'}
+# Get regression summaries:
+knitr::kable(get_regression_table(gender_model_all))
+```
+
+
+```{r}
+multiple_lm <- lm(violenceWomen2018 ~ fertilityWomen2018 + schoolRatio2018, data = women_data)
+```
+
+
+
+**Checking for heteroscedasticity**
+
+As the plot below shows a fairly straight-across horizontal line on the Residuals vs Fitted plot, it seems fine to proceed with the interpretation of the results.
+
+```{r}
+par(mfrow=c(2,2))
+plot(multiple_lm)
+```
+
+```{r}
+summary(multiple_lm)
+
+```
+
+
+As seen from the summary above, the coefficients of babies per women on violence against women is 3.84, while the estimated effect of the ratio of boys to girls in primary and secondary school is 11.71. 
+
+This means that for every 1% increase in babies per woman, there is a correlated 3.84% increase in violence against women. Meanwhile, for every 1% increase in the ratio of girls to boys in primary and secondary school, there is a 11.71% increase in the rate of violence against women.
+
+The standard errors for these coefficients are relatively large for babies per woman and school gender ratio (0.41 and 10.04 respectively). Given how large the standard error is for the school gender ratio is, it is best to discard this 11.71% increase we see in the data.
+
+ 
+# Discussion
+
+Violence against women is a major public health and human rights problem affecting millions of women and girls worldwide [@world2014violence]. Understanding the core elements that lead to violence against women can help to reduce it. 
+
+While there are many complex factors that contribute to the prevalence of violence against women, one connection explored in this paper is the relationship between the amount of violence against women and the gender makeup of children in primary and secondary education. This paper found a weak relationship between gender ratio in schools and violence against women. Thereby, we reject the alternative hypothesis, and maintain that there is no significant correlation between violence against women and the gender ratio found in primary and secondary education.
+
+The data collected also showed a correlation between babies per woman and violence against women. **It was revealed that for every 1% increase in the number of babies per woman, there is a 3.84% increase in violence against women.** However, since the number of babies per woman in a country can only explain 47.6% of the variation in violence against women, there are most likely other variables that were not explored in this paper which would explain an increase in violence against women better. We can safely accept the null hypothesis that there is a moderate correlation between violence against women and birth rate.
+
+# Conclusion
+
+To sum up, there is a connection between the incidence of violence against women and the number of babies born per woman rate, but less than half of the variation in violence against women (47.6%) can be explained by the number of babies born per woman. There is a very weak correlation between the ratio of boys to girls in school and the violence against women, with the former only explaining 3.3% of the variation.Thus, we accept the null hypothesis and assess that there is a moderate correlation between at least two of the variables examined.
+
+Based on the data, it is likely that there are other, as of yet unidentified, factors involved. To expand on this work and develop a greater understanding of the factors related to increased levels of violence against women, further research into the proximate causes of violence against women, as well as exploration of the data sources that contribute to this understanding, is warranted.
+
+# References
